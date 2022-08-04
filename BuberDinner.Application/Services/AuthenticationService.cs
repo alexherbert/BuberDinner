@@ -1,9 +1,11 @@
-﻿using BuberDinner.Application.Common.Interfaces.Authentication;
+﻿using BuberDinner.Application.Authentication;
+using BuberDinner.Application.Common.Interfaces.Authentication;
 using BuberDinner.Application.Common.Interfaces.Persistence;
-using BuberDinner.Contracts.Authentication;
+using BuberDinner.Application.Errors;
 using BuberDinner.Domain;
+using FluentResults;
 
-namespace BuberDinner.Application.Authentication;
+namespace BuberDinner.Application.Services;
 
 public class AuthenticationService : IAuthenticationService
 {
@@ -16,21 +18,22 @@ public class AuthenticationService : IAuthenticationService
         _userRepository = userRepository;
     }
     
-    public AuthenticationResult Register(string firstName, string lastName, string email, string password)
+    public Result<AuthenticationResult> Register(string firstName, string lastName, string email, string password)
     {
         // Check if user exists
         if (_userRepository.GetUserByEmail(email) is not null)
         {
-            throw new Exception("User with email already exists");
+            return Result.Fail<AuthenticationResult>(new DuplicateEmailError());
         }
         
         // Create user
         var user = new User( Guid.NewGuid(), firstName, lastName, email, password);
+        _userRepository.Add(user);
         
         // Create JWT
         var token = _jwtTokenGenerator.GenerateToken(user);
         
-        return new(
+        return new AuthenticationResult(
             user,
             token);
     }
