@@ -1,32 +1,35 @@
-﻿using BuberDinner.Application.Authentication;
+﻿using BuberDinner.Application.Common;
 using BuberDinner.Application.Common.Interfaces.Authentication;
 using BuberDinner.Application.Common.Interfaces.Persistence;
+using BuberDinner.Domain;
 using ErrorOr;
-using User = BuberDinner.Domain.User;
+using MediatR;
 
-namespace BuberDinner.Application.Services;
+namespace BuberDinner.Application.Commands.Register;
 
-public class AuthenticationCommandService : IAuthenticationCommandService
+public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<AuthenticationResult>>
 {
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
     private readonly IUserRepository _userRepository;
 
-    public AuthenticationCommandService(IJwtTokenGenerator jwtTokenGenerator, IUserRepository userRepository)
+    public RegisterCommandHandler(IJwtTokenGenerator jwtTokenGenerator, IUserRepository userRepository)
     {
         _jwtTokenGenerator = jwtTokenGenerator;
         _userRepository = userRepository;
     }
     
-    public ErrorOr<AuthenticationResult> Register(string firstName, string lastName, string email, string password)
+    public async Task<ErrorOr<AuthenticationResult>> Handle(RegisterCommand command, CancellationToken cancellationToken)
     {
+        await Task.CompletedTask;
+        
         // Check if user exists
-        if (_userRepository.GetUserByEmail(email) is not null)
+        if (_userRepository.GetUserByEmail(command.Email) is not null)
         {
             return Domain.Common.Errors.User.DuplicateEmailError;
         }
         
         // Create user
-        var user = new User( Guid.NewGuid(), firstName, lastName, email, password);
+        var user = new User(Guid.NewGuid(), command.FirstName, command.LastName, command.Email, command.Password);
         _userRepository.Add(user);
         
         // Create JWT
