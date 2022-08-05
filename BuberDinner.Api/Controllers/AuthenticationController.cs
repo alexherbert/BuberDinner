@@ -1,40 +1,40 @@
 ﻿using BuberDinner.Application.Authentication;
 using BuberDinner.Application.Services;
 using BuberDinner.Contracts.Authentication;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BuberDinner.Api.Controllers;
 
 [ApiController]
 [Route("auth")]
-public class AuthenticationController : ControllerBase
+public class AuthenticationController : ApiController
 {
-    private readonly IAuthenticationService _authenticationService;
+    private readonly IAuthenticationCommandService _authenticationCommandService;
+    private readonly IAuthenticationQueryService _authenticationQueryService;
+    private readonly IMediator _mediator;
 
-    public AuthenticationController(IAuthenticationService authenticationService)
+    public AuthenticationController(IAuthenticationCommandService authenticationCommandService, IAuthenticationQueryService authenticationQueryService, IMediator mediator)
     {
-        _authenticationService = authenticationService;
+        _authenticationCommandService = authenticationCommandService;
+        _authenticationQueryService = authenticationQueryService;
+        _mediator = mediator;
     }
 
     [HttpPost("register")]
     public IActionResult Register(RegisterRequest request)
     {
         var result =
-            _authenticationService.Register(request.FirstName, request.LastName, request.Email, request.Password);
+            _authenticationCommandService.Register(request.FirstName, request.LastName, request.Email, request.Password);
 
-        if (result.IsSuccess)
-        {
-            return Ok(new AuthenticationResponse(
+        return result.Match(
+            authResult => Ok(new AuthenticationResponse(
                 result.Value.User.Id,
                 result.Value.User.FirstName,
                 result.Value.User.LastName,
                 result.Value.User.Email,
-                result.Value.Token));
-        }
-        else
-        {
-            return Problem();
-        }
+                result.Value.Token)),
+            errors => Problem(errors));
     }
 
     private static AuthenticationResponse MapAuthResult(AuthenticationResult authResult)
@@ -50,14 +50,11 @@ public class AuthenticationController : ControllerBase
     [HttpPost("login")]
     public IActionResult Login(LoginRequest request)
     {
-        var result = _authenticationService.Login(request.Email, request.Password);
-        var response = new AuthenticationResponse(
-            result.User.Id,
-            result.User.FirstName,
-            result.User.LastName,
-            result.User.Email,
-            result.Token
-        );
-        return Ok(response);
+        var result = _authenticationQueryService.Login(request.Email, request.Password);
+        
+        return result.Match(
+            authResult => Ok(MapAuthResult(authResult)),
+            Problem);
+
     }
 }
